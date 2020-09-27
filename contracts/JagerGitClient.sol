@@ -6,6 +6,12 @@ import "openzeppelin-solidity/contracts/token/ERC20/ERC20.sol";
 
 contract JagerGitClient is ChainlinkClient, Ownable {
   uint256 constant private ORACLE_PAYMENT = 1 * LINK;
+  address _oracle;
+  string _jobId;
+  string url1;
+  string url2;
+  
+  bytes32 public addrStr;
 
   /**  
   * @dev Details of each transfer  
@@ -20,6 +26,11 @@ contract JagerGitClient is ChainlinkClient, Ownable {
     uint amount_;  
     bool failed_;  
   }
+  
+  event requestBountyCompleteFulfilled(
+    bytes32 indexed requestId,
+    bytes32 indexed addrStr
+  );
 
   /**  
   * @dev a mapping from transaction ID's to the sender address  
@@ -175,8 +186,12 @@ contract JagerGitClient is ChainlinkClient, Ownable {
 
   constructor() public Ownable() {
     setPublicChainlinkToken();
+    _oracle = address(0x56dd6586DB0D08c6Ce7B2f2805af28616E082455);
+    _jobId = "c128fbb0175442c8ba828040fdd1a25e";
     bytes32 b = stringToBytes32("DAI");
     addNewToken(b, address(0x4dC966317B2c55105FAd4835F651022aCD632120));
+    url1 = "https://api.github.com/repos/";
+    url2 = "/pulls/";
   }
   
   function AddNewMeister() private {
@@ -295,6 +310,24 @@ contract JagerGitClient is ChainlinkClient, Ownable {
             return 1;
         else
             return 0;
+    }
+    
+    function requestBountyComplete(string repo_link, string PR_id)
+    public
+    onlyOwner
+    {
+        Chainlink.Request memory req = buildChainlinkRequest(stringToBytes32(_jobId), this, this.fulfillBountyComplete.selector);
+        req.add("get", string(abi.encodePacked(url1, repo_link, url2, PR_id)));
+        req.add("path", "body");
+        sendChainlinkRequestTo(_oracle, req, ORACLE_PAYMENT);
+    }
+  
+    function fulfillBountyComplete(bytes32 _requestId, bytes32 _addrStr)
+    public
+    recordChainlinkFulfillment(_requestId)
+    {
+        emit requestBountyCompleteFulfilled(_requestId, _addrStr);
+        addrStr = _addrStr;
     }
 
 }
